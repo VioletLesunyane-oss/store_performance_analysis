@@ -515,13 +515,4 @@ bright-store-analysis/
 
 [Back to top](#table-of-contents)
 
----
 
-## 13. Update Log
-
-| Date | Update |
-|---|---|
-| 2026-10-02 | First version of the README: overview, pipeline, schema flow, cleaning decisions, calculations and results |
-| 2026-10-02 | Currency set to South African Rand (R) across the README, Excel workbook and charts |
-| 2026-10-02 | Added year over year, quarter over quarter and month over month analysis (README section 7.2 and `Growth` sheet) |
-| *next* | Add Databricks notebooks and full code, then update sections 5, 6, 10, 11 and 12 |
