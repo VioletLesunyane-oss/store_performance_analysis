@@ -573,3 +573,287 @@ orders_products.describe().round(2)
 
 # MAGIC %md
 # MAGIC ##CUSTOMERS TABLE EDA
+
+# COMMAND ----------
+
+display(customers)
+
+# COMMAND ----------
+
+display(customers.shape)
+
+# COMMAND ----------
+
+#Age column must be converted to an integer and signupdate to datetime
+customers.info()
+
+# COMMAND ----------
+
+customers.isna().sum()
+
+# COMMAND ----------
+
+customers.duplicated().sum()
+
+# COMMAND ----------
+
+customers.describe().round(2)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - CustomerID Column
+
+# COMMAND ----------
+
+customers["CustomerID"].count()
+
+# COMMAND ----------
+
+
+customers["CustomerID"].isna().sum()
+
+# COMMAND ----------
+
+customers["CustomerID"].duplicated().sum()
+
+# COMMAND ----------
+
+# Comparing customerID column in orders_products table with customers ID. We do not have duplicates in this column
+orders_products["CustomerID"].isin(customers["CustomerID"]).value_counts()
+
+# COMMAND ----------
+
+customers["CustomerID"].is_unique
+
+# COMMAND ----------
+
+# CustomerID column is a clean primary key.
+# 100001 to 110000 is exactly 10,000 numbers, matching the row count.
+customers["CustomerID"].agg(["min", "max"])
+
+# COMMAND ----------
+
+customers["CustomerID"].diff().dropna().eq(1).all()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Age Column
+
+# COMMAND ----------
+
+customers.info()
+
+# COMMAND ----------
+
+customers["Age"] = customers["Age"].astype("Int64")
+
+# COMMAND ----------
+
+customers["Age"].info()
+
+# COMMAND ----------
+
+customers["Age"].count()
+
+# COMMAND ----------
+
+display(customers["Age"].value_counts())
+
+# COMMAND ----------
+
+customers["Age"].isna().sum()
+
+# COMMAND ----------
+
+customers["Age"].describe().round(0)
+
+# COMMAND ----------
+
+customers["Age"].mode()
+
+# COMMAND ----------
+
+#Comparing ages with percentages
+customers["Age"].quantile([.05, .25, .5, .75, .95])
+
+# COMMAND ----------
+
+pd.cut(customers["Age"], [17, 24, 34, 44, 54, 65]).value_counts()
+
+# COMMAND ----------
+
+# In this instance using mean or median would have produced same results as the average age constituted 41 and median 41
+customers["Age"] = customers["Age"].fillna(customers["Age"].median())
+
+# COMMAND ----------
+
+#Handled the nulls by replaing them with median age which is 41
+customers["Age"].isna().sum()
+
+# COMMAND ----------
+
+display(customers["Age"].value_counts())
+
+# COMMAND ----------
+
+def age_bucket(age):
+    if age >= 18 and age <= 24:
+        return "Youth"
+    elif age >= 25 and age <= 34:
+        return "Young Adults"
+    elif age >= 35 and age <= 54:
+        return "Adults"
+    else:
+        return "Seniors"
+
+customers["AgeBucket"] = customers["Age"].apply(age_bucket)
+
+display(customers)
+
+# COMMAND ----------
+
+display(
+    customers["AgeBucket"].value_counts().reset_index()
+)
+
+# COMMAND ----------
+
+display(customers)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - City Column
+
+# COMMAND ----------
+
+customers["City"].isna().sum()
+
+# COMMAND ----------
+
+customers["City"] = customers["City"].fillna("Unknown")
+
+# COMMAND ----------
+
+customers["City"].isna().sum()
+
+# COMMAND ----------
+
+customers["City"].nunique()
+
+# COMMAND ----------
+
+customers["City"].value_counts()
+
+# COMMAND ----------
+
+customers["City"] = (customers["City"]
+    .str.strip()
+    .str.title()
+    .replace({"Mashad": "Mashhad"}))
+
+
+# COMMAND ----------
+
+customers["City"].value_counts()
+
+# COMMAND ----------
+
+customers["City"].nunique()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Signup Date Column
+
+# COMMAND ----------
+
+customers["SignupDate"].info()
+
+# COMMAND ----------
+
+customers["SignupDate"] = pd.to_datetime(customers["SignupDate"])
+
+display(customers)
+
+# COMMAND ----------
+
+start_date = customers["SignupDate"].min()
+end_date = customers["SignupDate"].max()
+
+display("Start Date:", start_date)
+display("End Date:", end_date)
+
+# COMMAND ----------
+
+customers["Year"] = customers["SignupDate"].dt.year
+customers["MonthName"] = customers["SignupDate"].dt.month_name()
+customers["Day"] = customers["SignupDate"].dt.day
+customers["DayName"] = customers["SignupDate"].dt.day_name()
+customers["Quarter"] = customers["SignupDate"].dt.quarter
+
+display(customers)
+
+# COMMAND ----------
+
+def classify_day(date):
+    if date.dayofweek < 5:
+        return "Weekday"
+    else:
+        return "Weekend"
+
+customers["day_classification"] = customers["SignupDate"].apply(classify_day)
+
+display(customers)
+
+# COMMAND ----------
+
+customers["SignupDate"].dt.to_period("Q").value_counts().sort_index()
+
+# COMMAND ----------
+
+customers["SignupDate"].dt.day_name().value_counts()
+
+# COMMAND ----------
+
+customers["day_classification"].value_counts()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Customer Segment
+
+# COMMAND ----------
+
+customers["CustomerSegment"].isna().sum()
+
+# COMMAND ----------
+
+customers["CustomerSegment"].value_counts()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## JOINING TABLES
+
+# COMMAND ----------
+
+ord_prod_cust = orders_products.merge(
+    customers,
+    on="CustomerID",
+    how="left"
+)
+
+display(ord_prod_cust)
+
+# COMMAND ----------
+
+#display(products.shape)
+#products.info()
+#products.describe().round(2)
+#products.isna().sum()
+#products.duplicated().sum()
+#orders["OrderDate"] = pd.to_datetime(orders["OrderDate"])
+#orders["Quantity"] = orders["Quantity"].astype("Int64")
