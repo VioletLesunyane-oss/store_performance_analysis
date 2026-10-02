@@ -30,7 +30,7 @@ An end-to-end data analysis of an online electronics shop, from raw CSV files to
 10. [Tools and Technologies](#10-tools-and-technologies)
 11. [Repository Structure](#11-repository-structure)
 12. [How to Reproduce](#12-how-to-reproduce)
-13. [Update Log](#13-update-log)
+    
 
 ---
 
