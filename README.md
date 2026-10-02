@@ -1,4 +1,3 @@
-# store_performance_analysis
 <p align="center">
   <img src="images/Bright_Store_Analysis_logo.png" alt="Bright Store Analysis" width="560">
 </p>
