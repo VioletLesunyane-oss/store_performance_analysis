@@ -4,6 +4,11 @@
 # environment_version = "5"
 # ///
 # MAGIC %md
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC # Data Ingestion and Conversion: Products DataFrame
 
 # COMMAND ----------
@@ -850,10 +855,853 @@ display(ord_prod_cust)
 
 # COMMAND ----------
 
-#display(products.shape)
-#products.info()
-#products.describe().round(2)
-#products.isna().sum()
-#products.duplicated().sum()
-#orders["OrderDate"] = pd.to_datetime(orders["OrderDate"])
-#orders["Quantity"] = orders["Quantity"].astype("Int64")
+ord_prod_cust.shape
+
+# COMMAND ----------
+
+ord_prod_cust.info()
+
+# COMMAND ----------
+
+ord_prod_cust.isna().sum()
+
+# COMMAND ----------
+
+ord_prod_cust["IsGuest"] = ord_prod_cust["CustomerID"] == 999999
+
+ord_prod_cust["IsGuest"].value_counts()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC In the below code,the data shows that we have 30 customers with missing data and i have decided to keep those customers for the following reasons:
+# MAGIC
+# MAGIC - Out of 50,000 orders, 30 (just 0.06%) were placed by guests, meaning customers who did not have an account, so we have no details for them such as age, city or signup date. 
+# MAGIC - I chose to keep these orders in the data instead of deleting them because the sales themselves are real: 
+# MAGIC - they add up to about 1,991 in sales out of a total of 3,503,500 (0.06%) and 49 items out of 94,172 sold (0.05%), and 28 of the 30 were completed. 
+# MAGIC - Removing them would make our totals slightly smaller than the true business figures, and the numbers would no longer match the company's records. 
+# MAGIC - The customer details for these orders were left blank instead of being guessed, because inventing an age or a city for someone we know nothing about would make the data less accurate, and the text fields were labelled "Unknown" so they are easy to spot. 
+# MAGIC - A "guest" marker was added to these 30 orders so they can be left out whenever we study customer behaviour, such as age or city, without losing them from sales totals.
+
+# COMMAND ----------
+
+#Creating flags for customers that are just guests
+ord_prod_cust["IsGuest"] = ord_prod_cust["CustomerID"] == 999999
+
+for col in ["City", "CustomerSegment", "AgeBucket"]:
+    ord_prod_cust[col] = ord_prod_cust[col].fillna("Unknown")
+
+display(ord_prod_cust)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## PAYMENTS TABLE EDA
+
+# COMMAND ----------
+
+payments.shape
+
+# COMMAND ----------
+
+payments.info()
+
+# COMMAND ----------
+
+payments.isna().sum()
+
+# COMMAND ----------
+
+payments["OrderID"].duplicated().sum()
+
+# COMMAND ----------
+
+payments["OrderID"].nunique()
+
+# COMMAND ----------
+
+ord_prod_cust["OrderID"].isin(payments["OrderID"]).value_counts()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Payment ID Column
+
+# COMMAND ----------
+
+payments["PaymentID"].isna().sum()
+
+# COMMAND ----------
+
+payments["PaymentID"].duplicated().sum()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Order ID Column
+
+# COMMAND ----------
+
+payments["OrderID"].isna().sum()
+
+# COMMAND ----------
+
+payments["OrderID"].duplicated().sum()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Payment Date Column
+
+# COMMAND ----------
+
+payments["PaymentDate"].info()
+
+# COMMAND ----------
+
+payments["PaymentDate"] = pd.to_datetime(payments["PaymentDate"])
+
+# COMMAND ----------
+
+start_date = payments["PaymentDate"].min()
+end_date = payments["PaymentDate"].max()
+
+display("Start Date:", start_date)
+display("End Date:", end_date)
+
+# COMMAND ----------
+
+ord_prod_cust["OrderDate"].isin(payments["PaymentDate"]).value_counts()
+
+# COMMAND ----------
+
+payments["PaymentDate"].info()
+
+# COMMAND ----------
+
+payments["PaymentDate"].isna().sum()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Temporary Table to check both OrderDate and PaymentDate if the dates are exactly the same
+
+# COMMAND ----------
+
+
+side_by_side = ord_prod_cust[["OrderID", "OrderDate"]].merge(
+    payments[["OrderID", "PaymentDate", "PaymentStatus"]],
+    on="OrderID", how="left", validate="1:1")
+
+side_by_side["Result"] = np.where(
+    side_by_side["OrderDate"].isnull() & side_by_side["PaymentDate"].isnull(), "Both missing",
+    np.where(side_by_side["OrderDate"] == side_by_side["PaymentDate"], "Match", "Different"))
+
+side_by_side.fillna("(missing)").head(10)        # show nulls as words instead of NaN
+side_by_side["Result"].value_counts()
+
+display(side_by_side)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## JOINING TABLES
+
+# COMMAND ----------
+
+store_table = ord_prod_cust.merge(payments[["OrderID", "PaymentStatus"]],
+    on="OrderID", 
+    how="left", validate="1:1")
+
+display(store_table)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## FINAL ANALYSIS
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Data Exoploration
+
+# COMMAND ----------
+
+store_table.shape
+
+# COMMAND ----------
+
+store_table.info()
+
+# COMMAND ----------
+
+store_table["Year_y"]    = store_table["Year_y"].astype("Int64")
+store_table["Day_y"]     = store_table["Day_y"].astype("Int64")
+store_table["Quarter_y"] = store_table["Quarter_y"].astype("Int64")
+
+display(store_table)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - NOTE: The 30 nulls below represent guests that we flagged
+
+# COMMAND ----------
+
+store_table.isna().sum()
+
+# COMMAND ----------
+
+store_table.duplicated().sum()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Revenue and Net Revenue
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Revenue
+# MAGIC
+# MAGIC - Is the total money the business earned from selling products befor any deductins (e.g. Discounts)
+# MAGIC - Meaning its Total Sales before deductions.
+# MAGIC - Formula is Price x Quantity Sold.
+# MAGIC
+# MAGIC # Net Revenue 
+# MAGIC
+# MAGIC - Is Revenue minust customers returns, discounts, etc.
+# MAGIC - Formila is Revenue - Discounts
+# MAGIC - However, in this instance, we will be using Quntity x Unit Price x (1 - Discount) to get Net Revenue for a specific sale or product line.
+# MAGIC - Of-which, by multiplying the standard price by (1 - Discount), we will be getting an actual discounted unit price paid by the customer.
+
+# COMMAND ----------
+
+store_table["Revenue"] = (
+    store_table["Quantity"]
+    * store_table["UnitPrice"]
+    * (1 - store_table["Discount"])
+)
+
+store_table["NetRevenue"] = np.where(
+    (store_table["Status"] == "Completed") &
+    (store_table["PaymentStatus"] == "Paid"),
+    store_table["Revenue"],
+    0
+)
+
+display(store_table)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Total Net Revenue
+
+# COMMAND ----------
+
+total_net_revenue = store_table["NetRevenue"].sum()
+
+display(total_net_revenue)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Total Realised Orders
+
+# COMMAND ----------
+
+total_orders = store_table[
+    store_table["NetRevenue"] > 0
+]["OrderID"].nunique()
+
+display(total_orders)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Average Order Value
+
+# COMMAND ----------
+
+average_order_value = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby("OrderID")["NetRevenue"]
+    .sum()
+    .mean()
+).round(2)
+
+display(average_order_value)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Total Units Sold
+
+# COMMAND ----------
+
+total_units_sold = store_table[
+    store_table["NetRevenue"] > 0
+]["Quantity"].sum()
+
+display(total_units_sold)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Completion Rate
+
+# COMMAND ----------
+
+completion_rate = (
+    store_table["Status"].eq("Completed").mean() * 100
+).round(2)
+
+display(completion_rate)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Cancelled + Returned Rate
+
+# COMMAND ----------
+
+cancelled_returned_rate = (
+    store_table["Status"]
+    .isin(["Cancelled", "Returned"])
+    .mean()
+    * 100
+).round(2)
+
+display(cancelled_returned_rate)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Payment Failure Rate
+
+# COMMAND ----------
+
+payment_failure_rate = (
+    store_table["PaymentStatus"].eq("Failed").mean()
+    * 100
+).round(2)
+
+display(payment_failure_rate)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Average Discount
+
+# COMMAND ----------
+
+average_discount = (
+    store_table["Discount"].mean() * 100
+).round(2)
+
+display(average_discount)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Total Customers
+
+# COMMAND ----------
+
+total_customers = store_table["CustomerID"].nunique()
+
+display(total_customers)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Monthly Net Revenue Trend
+
+# COMMAND ----------
+
+monthly_revenue = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby(
+        store_table["OrderDate"].dt.to_period("M")
+    )["NetRevenue"]
+    .sum()
+    .reset_index()
+)
+
+monthly_revenue["OrderDate"] = (
+    monthly_revenue["OrderDate"].dt.to_timestamp()
+)
+
+display(monthly_revenue)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Orders By Month
+
+# COMMAND ----------
+
+monthly_orders = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby(
+        store_table["OrderDate"].dt.to_period("M")
+    )["OrderID"]
+    .nunique()
+    .reset_index(name="Orders")
+)
+
+monthly_orders["OrderDate"] = (
+    monthly_orders["OrderDate"].dt.to_timestamp()
+)
+
+display(monthly_orders)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Monthly Average Order Value(AOV)
+
+# COMMAND ----------
+
+monthly_aov = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby(
+        [
+            store_table["OrderDate"].dt.to_period("M"),
+            "OrderID"
+        ]
+    )["NetRevenue"]
+    .sum()
+    .groupby(level=0)
+    .mean()
+    .reset_index(name="AOV")
+).round(2)
+
+monthly_aov["OrderDate"] = (
+    monthly_aov["OrderDate"].dt.to_timestamp()
+)
+
+display(monthly_aov)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Revenue By Category
+
+# COMMAND ----------
+
+category_analysis = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby("Category")
+    .agg(
+        NetRevenue=("NetRevenue", "sum"),
+        UnitsSold=("Quantity", "sum"),
+        Orders=("OrderID", "nunique")
+    )
+    .sort_values(
+        "NetRevenue",
+        ascending=False
+    )
+    .reset_index()
+)
+
+display(category_analysis)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Units Sold By Category
+
+# COMMAND ----------
+
+category_units = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby("Category")["Quantity"]
+    .sum()
+    .sort_values(ascending=False)
+    .reset_index(name="UnitsSold")
+)
+
+display(category_units)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Top 10 Products By Revenue
+
+# COMMAND ----------
+
+top_products_revenue = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby("ProductName")
+    .agg(
+        NetRevenue=("NetRevenue", "sum"),
+        UnitsSold=("Quantity", "sum"),
+        Orders=("OrderID", "nunique")
+    )
+    .sort_values(
+        "NetRevenue",
+        ascending=False
+    )
+    .head(10)
+    .reset_index()
+).round(2)
+
+display(top_products_revenue)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Top 10 Products by Unit Sold
+
+# COMMAND ----------
+
+top_products_by_units_sold = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby("ProductName")["Quantity"]
+    .sum()
+    .sort_values(ascending=False)
+    .head(10)
+    .reset_index(name="UnitsSold")
+)
+
+display(top_products_by_units_sold)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Revenue By City
+
+# COMMAND ----------
+
+city_analysis = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby("City")
+    .agg(
+        NetRevenue=("NetRevenue", "sum"),
+        Orders=("OrderID", "nunique"),
+        AOV=("NetRevenue", "mean")
+    )
+    .sort_values(
+        "NetRevenue",
+        ascending=False
+    )
+    .reset_index()
+).round(2)
+
+display(city_analysis)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Revenue By Customer Segments
+
+# COMMAND ----------
+
+segment_analysis = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby("CustomerSegment")
+    .agg(
+        NetRevenue=("NetRevenue", "sum"),
+        Orders=("OrderID", "nunique"),
+        AOV=("NetRevenue", "mean")
+    )
+    .sort_values(
+        "NetRevenue",
+        ascending=False
+    )
+    .reset_index()
+).round(2)
+
+display(segment_analysis)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Revenue By Age Bucket
+
+# COMMAND ----------
+
+age_analysis = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby("AgeBucket")
+    .agg(
+        NetRevenue=("NetRevenue", "sum"),
+        Orders=("OrderID", "nunique")
+    )
+    .sort_values(
+        "NetRevenue",
+        ascending=False
+    )
+    .reset_index()
+).round(2)
+
+display(age_analysis)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Order Status Analysis
+
+# COMMAND ----------
+
+status_analysis = (
+    store_table
+    .groupby("Status")
+    .agg(
+        Orders=("OrderID", "nunique"),
+        Revenue=("Revenue", "sum")
+    )
+    .sort_values(
+        "Orders",
+        ascending=False
+    )
+    .reset_index()
+)
+
+display(status_analysis)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Payment Status Analysis
+
+# COMMAND ----------
+
+payment_status_analysis = (
+    store_table
+    .groupby("PaymentStatus")
+    .agg(
+        Orders=("OrderID", "nunique"),
+        Revenue=("Revenue", "sum")
+    )
+    .sort_values(
+        "Orders",
+        ascending=False
+    )
+    .reset_index()
+)
+
+display(payment_status_analysis)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Payments Method Analysis
+
+# COMMAND ----------
+
+payment_method_analysis = (
+    store_table
+    .groupby("PaymentMethod")
+    .agg(
+        Orders=("OrderID", "nunique"),
+        NetRevenue=("NetRevenue", "sum"),
+        FailedPayments=(
+            "PaymentStatus",
+            lambda x: (x == "Failed").sum()
+        )
+    )
+    .reset_index()
+).round(2)
+
+payment_method_analysis["FailureRate"] = (
+    payment_method_analysis["FailedPayments"]
+    / payment_method_analysis["Orders"]
+    * 100
+).round(2)
+
+display(payment_method_analysis)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Discount Analysis
+
+# COMMAND ----------
+
+discount_analysis = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby("Discount")
+    .agg(
+        Orders=("OrderID", "nunique"),
+        AverageQuantity=("Quantity", "mean"),
+        AverageRevenue=("Revenue", "mean"),
+        TotalRevenue=("Revenue", "sum")
+    )
+    .reset_index()
+    .sort_values("Discount")
+).round(2)
+
+display(discount_analysis)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Discount vs Quantity
+
+# COMMAND ----------
+
+discount_quantity = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby("Discount")["Quantity"]
+    .mean()
+    .reset_index(name="AverageQuantity")
+    .sort_values("Discount")
+).round(2)
+
+display(discount_quantity)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Revenue by Day Classification
+
+# COMMAND ----------
+
+day_analysis = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby("day_classification_x")
+    .agg(
+        Orders=("OrderID", "nunique"),
+        NetRevenue=("NetRevenue", "sum")
+    )
+    .reset_index()
+)
+
+day_analysis["AOV"] = (
+    day_analysis["NetRevenue"]
+    / day_analysis["Orders"]
+).round(2)
+
+display(day_analysis)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Revenue by Day-of-Week
+
+# COMMAND ----------
+
+day_name_analysis = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby("DayName_x")
+    .agg(
+        Orders=("OrderID", "nunique"),
+        NetRevenue=("NetRevenue", "sum")
+    )
+    .reindex([
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday"
+    ])
+    .reset_index()
+)
+
+display(day_name_analysis)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Revenue by Quater
+
+# COMMAND ----------
+
+quarter_analysis = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby("Quarter_x")
+    .agg(
+        NetRevenue=("NetRevenue", "sum"),
+        Orders=("OrderID", "nunique")
+    )
+    .reset_index()
+)
+
+display(quarter_analysis)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Revenue by Year
+
+# COMMAND ----------
+
+year_analysis = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby("Year_x")
+    .agg(
+        NetRevenue=("NetRevenue", "sum"),
+        Orders=("OrderID", "nunique")
+    )
+    .reset_index()
+)
+
+display(year_analysis)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Revenue Year Over Year 
+
+# COMMAND ----------
+
+year_analysis["YoY_Growth"] = (
+    year_analysis["NetRevenue"]
+    .pct_change()
+    * 100
+).round(2)
+
+display(year_analysis)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Revenue v Orders
+
+# COMMAND ----------
+
+monthly_performance = (
+    store_table[store_table["NetRevenue"] > 0]
+    .groupby(
+        store_table["OrderDate"].dt.to_period("M")
+    )
+    .agg(
+        NetRevenue=("NetRevenue", "sum"),
+        Orders=("OrderID", "nunique")
+    )
+    .reset_index()
+).round(2)
+
+monthly_performance["AOV"] = (
+    monthly_performance["NetRevenue"]
+    / monthly_performance["Orders"]
+).round(2)
+
+monthly_performance["OrderGrowth"] = (
+    monthly_performance["Orders"]
+    .pct_change()
+    * 100
+).round(2)
+
+monthly_performance["AOVGrowth"] = (
+    monthly_performance["AOV"]
+    .pct_change()
+    * 100
+).round(2)
+
+monthly_performance["RevenueGrowth"] = (
+    monthly_performance["NetRevenue"]
+    .pct_change()
+    * 100
+).round(2)
+
+display(monthly_performance)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC
