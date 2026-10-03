@@ -137,11 +137,21 @@ products.duplicated().sum()
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC - ProductID Column
+
+# COMMAND ----------
+
 products["ProductID"].count()
 
 # COMMAND ----------
 
 products["ProductID"].value_counts()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Category Column
 
 # COMMAND ----------
 
@@ -156,6 +166,11 @@ products["Category"].value_counts()
 display(products.loc[
     products.groupby("Category")["UnitPrice"].agg(["idxmax", "idxmin"]).stack()
 ].sort_values(["Category", "UnitPrice"]))
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Unit Price
 
 # COMMAND ----------
 
@@ -1091,6 +1106,17 @@ store_table["NetRevenue"] = np.where(
 )
 
 display(store_table)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC - Revenue
+
+# COMMAND ----------
+
+total_revenue = store_table["Revenue"].sum().round(2)
+
+display(total_revenue)
 
 # COMMAND ----------
 
