@@ -502,17 +502,5 @@ bright-store-analysis/
 
 [Back to top](#table-of-contents)
 
----
-
-## 12. How to Reproduce
-
-*(to be updated once the full code is added)*
-
-1. Place the four CSV files in `data/raw/`.
-2. Run the Databricks notebooks in order: ingestion, cleaning, joins.
-3. Export the final table and open it in `excel/Shop_Performance_Analysis.xlsx`.
-4. All summary sheets recalculate from the `Data` sheet.
-
-[Back to top](#table-of-contents)
 
 
